@@ -34,7 +34,7 @@ export default {
     if (url.pathname === "/api/login" && request.method === "GET") {
       return new Response(null, {
         status: 302,
-        headers: { Location: "https://ds-frontend-e9s.pages.dev/edit-courses" },
+        headers: { Location: "https://ds-frontend-e9s.pages.dev/explore" },
       });
     }
 
