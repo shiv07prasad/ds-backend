@@ -31,6 +31,13 @@ export default {
       return jsonResponse(200, { ok: true });
     }
 
+    if (url.pathname === "/api/login" && request.method === "GET") {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: "https://ds-frontend-e9s.pages.dev/edit-courses" },
+      });
+    }
+
     if (url.pathname === "/api/me" && request.method === "GET") {
       return handleGetMe(request, env);
     }
