@@ -1,0 +1,8 @@
+name = "ds-backend"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ds_db"
+database_id = "e57a8e32-28a2-4cf1-b692-f7607c607cb4"
