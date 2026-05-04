@@ -5,7 +5,9 @@ export const JSON_HEADERS = {
 };
 
 export const CORS_HEADERS = {
-  "access-control-allow-origin": "*",
+  // With credentials/cookies, ACAO cannot be "*"; it must be an explicit origin.
+  "access-control-allow-origin": "https://ds-frontend-e9s.pages.dev",
+  "access-control-allow-credentials": "true",
   "access-control-allow-methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
   "access-control-allow-headers":
     "content-type, cf-access-authenticated-user-email, x-dev-user-email",
@@ -35,7 +37,8 @@ export function textResponse(
 
 export function handleOptions() {
   return textResponse(204, "", {
-    "access-control-allow-origin": "*",
+    "access-control-allow-origin": "https://ds-frontend-e9s.pages.dev",
+    "access-control-allow-credentials": "true",
     "access-control-allow-methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
     "access-control-allow-headers":
       "content-type, cf-access-authenticated-user-email, x-dev-user-email",
