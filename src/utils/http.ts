@@ -10,7 +10,7 @@ export const CORS_HEADERS = {
   "access-control-allow-credentials": "true",
   "access-control-allow-methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
   "access-control-allow-headers":
-    "content-type, cf-access-authenticated-user-email, x-dev-user-email",
+    "content-type, authorization, x-dev-user-email",
 };
 
 export function jsonResponse(
@@ -41,7 +41,7 @@ export function handleOptions() {
     "access-control-allow-credentials": "true",
     "access-control-allow-methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
     "access-control-allow-headers":
-      "content-type, cf-access-authenticated-user-email, x-dev-user-email",
+      "content-type, authorization, x-dev-user-email",
   });
 }
 

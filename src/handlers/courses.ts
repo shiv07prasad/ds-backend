@@ -25,6 +25,10 @@ type SubtopicRow = {
   sort_order: number;
 };
 
+function isAdminUser(user: { is_admin: number }) {
+  return user.is_admin === 1;
+}
+
 async function fetchCoursesWithNested(
   env: Env,
   whereClause: string,
@@ -113,10 +117,14 @@ export async function handleGetMyCourses(request: Request, env: Env) {
     return auth.response;
   }
 
+  const isAdmin = isAdminUser(auth.user);
+
   const courses = await fetchCoursesWithNested(
     env,
-    "WHERE owner_user_id = ? AND is_system = 0",
-    [auth.user.id],
+    isAdmin
+      ? "WHERE is_system = 1"
+      : "WHERE owner_user_id = ? AND is_system = 0",
+    isAdmin ? [] : [auth.user.id],
   );
   return jsonResponse(200, { courses });
 }
@@ -126,6 +134,8 @@ export async function handleCreateMyCourse(request: Request, env: Env) {
   if ("response" in auth) {
     return auth.response;
   }
+
+  const isAdmin = isAdminUser(auth.user);
 
   let payload: { title?: string } = {};
   try {
@@ -140,9 +150,11 @@ export async function handleCreateMyCourse(request: Request, env: Env) {
   }
 
   const created = await env.DB.prepare(
-    "INSERT INTO courses (title, owner_user_id, is_system) VALUES (?, ?, 0) RETURNING id, title, owner_user_id, is_system, created_at",
+    isAdmin
+      ? "INSERT INTO courses (title, owner_user_id, is_system) VALUES (?, NULL, 1) RETURNING id, title, owner_user_id, is_system, created_at"
+      : "INSERT INTO courses (title, owner_user_id, is_system) VALUES (?, ?, 0) RETURNING id, title, owner_user_id, is_system, created_at",
   )
-    .bind(title, auth.user.id)
+    .bind(...(isAdmin ? [title] : [title, auth.user.id]))
     .first<CourseRow>();
 
   return jsonResponse(201, { course: { ...created, topics: [] } });
@@ -158,6 +170,8 @@ export async function handleUpdateMyCourse(
     return auth.response;
   }
 
+  const isAdmin = isAdminUser(auth.user);
+
   let payload: { title?: string } = {};
   try {
     payload = await parseJsonBody(request);
@@ -171,9 +185,11 @@ export async function handleUpdateMyCourse(
   }
 
   const existing = await env.DB.prepare(
-    "SELECT id FROM courses WHERE id = ? AND owner_user_id = ? AND is_system = 0",
+    isAdmin
+      ? "SELECT id FROM courses WHERE id = ? AND is_system = 1"
+      : "SELECT id FROM courses WHERE id = ? AND owner_user_id = ? AND is_system = 0",
   )
-    .bind(courseId, auth.user.id)
+    .bind(...(isAdmin ? [courseId] : [courseId, auth.user.id]))
     .first();
 
   if (!existing) {
@@ -183,6 +199,35 @@ export async function handleUpdateMyCourse(
   await env.DB.prepare("UPDATE courses SET title = ? WHERE id = ?")
     .bind(title, courseId)
     .run();
+
+  return jsonResponse(200, { ok: true });
+}
+
+export async function handleDeleteMyCourse(
+  request: Request,
+  env: Env,
+  courseId: number,
+) {
+  const auth = await getAuthedUser(request, env);
+  if ("response" in auth) {
+    return auth.response;
+  }
+
+  const isAdmin = isAdminUser(auth.user);
+
+  const existing = await env.DB.prepare(
+    isAdmin
+      ? "SELECT id FROM courses WHERE id = ? AND is_system = 1"
+      : "SELECT id FROM courses WHERE id = ? AND owner_user_id = ? AND is_system = 0",
+  )
+    .bind(...(isAdmin ? [courseId] : [courseId, auth.user.id]))
+    .first();
+
+  if (!existing) {
+    return jsonResponse(404, { error: "not_found" });
+  }
+
+  await env.DB.prepare("DELETE FROM courses WHERE id = ?").bind(courseId).run();
 
   return jsonResponse(200, { ok: true });
 }
@@ -197,6 +242,8 @@ export async function handleAddMyTopic(
     return auth.response;
   }
 
+  const isAdmin = isAdminUser(auth.user);
+
   let payload: { title?: string } = {};
   try {
     payload = await parseJsonBody(request);
@@ -210,9 +257,11 @@ export async function handleAddMyTopic(
   }
 
   const course = await env.DB.prepare(
-    "SELECT id FROM courses WHERE id = ? AND owner_user_id = ? AND is_system = 0",
+    isAdmin
+      ? "SELECT id FROM courses WHERE id = ? AND is_system = 1"
+      : "SELECT id FROM courses WHERE id = ? AND owner_user_id = ? AND is_system = 0",
   )
-    .bind(courseId, auth.user.id)
+    .bind(...(isAdmin ? [courseId] : [courseId, auth.user.id]))
     .first();
 
   if (!course) {
@@ -244,6 +293,8 @@ export async function handleUpdateMyTopic(
     return auth.response;
   }
 
+  const isAdmin = isAdminUser(auth.user);
+
   let payload: { title?: string; sort_order?: number } = {};
   try {
     payload = await parseJsonBody(request);
@@ -260,9 +311,11 @@ export async function handleUpdateMyTopic(
   }
 
   const topic = await env.DB.prepare(
-    "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
+    isAdmin
+      ? "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.is_system = 1"
+      : "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
   )
-    .bind(topicId, auth.user.id)
+    .bind(...(isAdmin ? [topicId] : [topicId, auth.user.id]))
     .first();
 
   if (!topic) {
@@ -278,6 +331,35 @@ export async function handleUpdateMyTopic(
   return jsonResponse(200, { ok: true });
 }
 
+export async function handleDeleteMyTopic(
+  request: Request,
+  env: Env,
+  topicId: number,
+) {
+  const auth = await getAuthedUser(request, env);
+  if ("response" in auth) {
+    return auth.response;
+  }
+
+  const isAdmin = isAdminUser(auth.user);
+
+  const existing = await env.DB.prepare(
+    isAdmin
+      ? "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.is_system = 1"
+      : "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
+  )
+    .bind(...(isAdmin ? [topicId] : [topicId, auth.user.id]))
+    .first();
+
+  if (!existing) {
+    return jsonResponse(404, { error: "not_found" });
+  }
+
+  await env.DB.prepare("DELETE FROM topics WHERE id = ?").bind(topicId).run();
+
+  return jsonResponse(200, { ok: true });
+}
+
 export async function handleAddMySubtopic(
   request: Request,
   env: Env,
@@ -287,6 +369,8 @@ export async function handleAddMySubtopic(
   if ("response" in auth) {
     return auth.response;
   }
+
+  const isAdmin = isAdminUser(auth.user);
 
   let payload: { title?: string; link?: string } = {};
   try {
@@ -302,9 +386,11 @@ export async function handleAddMySubtopic(
   }
 
   const topic = await env.DB.prepare(
-    "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
+    isAdmin
+      ? "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.is_system = 1"
+      : "SELECT topics.id FROM topics JOIN courses ON courses.id = topics.course_id WHERE topics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
   )
-    .bind(topicId, auth.user.id)
+    .bind(...(isAdmin ? [topicId] : [topicId, auth.user.id]))
     .first();
 
   if (!topic) {
@@ -336,6 +422,8 @@ export async function handleUpdateMySubtopic(
     return auth.response;
   }
 
+  const isAdmin = isAdminUser(auth.user);
+
   let payload: { title?: string; link?: string; sort_order?: number } = {};
   try {
     payload = await parseJsonBody(request);
@@ -353,9 +441,11 @@ export async function handleUpdateMySubtopic(
   }
 
   const subtopic = await env.DB.prepare(
-    "SELECT subtopics.id FROM subtopics JOIN topics ON topics.id = subtopics.topic_id JOIN courses ON courses.id = topics.course_id WHERE subtopics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
+    isAdmin
+      ? "SELECT subtopics.id FROM subtopics JOIN topics ON topics.id = subtopics.topic_id JOIN courses ON courses.id = topics.course_id WHERE subtopics.id = ? AND courses.is_system = 1"
+      : "SELECT subtopics.id FROM subtopics JOIN topics ON topics.id = subtopics.topic_id JOIN courses ON courses.id = topics.course_id WHERE subtopics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
   )
-    .bind(subtopicId, auth.user.id)
+    .bind(...(isAdmin ? [subtopicId] : [subtopicId, auth.user.id]))
     .first();
 
   if (!subtopic) {
@@ -381,10 +471,14 @@ export async function handleDeleteMySubtopic(
     return auth.response;
   }
 
+  const isAdmin = isAdminUser(auth.user);
+
   const existing = await env.DB.prepare(
-    "SELECT subtopics.id FROM subtopics JOIN topics ON topics.id = subtopics.topic_id JOIN courses ON courses.id = topics.course_id WHERE subtopics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
+    isAdmin
+      ? "SELECT subtopics.id FROM subtopics JOIN topics ON topics.id = subtopics.topic_id JOIN courses ON courses.id = topics.course_id WHERE subtopics.id = ? AND courses.is_system = 1"
+      : "SELECT subtopics.id FROM subtopics JOIN topics ON topics.id = subtopics.topic_id JOIN courses ON courses.id = topics.course_id WHERE subtopics.id = ? AND courses.owner_user_id = ? AND courses.is_system = 0",
   )
-    .bind(subtopicId, auth.user.id)
+    .bind(...(isAdmin ? [subtopicId] : [subtopicId, auth.user.id]))
     .first();
 
   if (!existing) {

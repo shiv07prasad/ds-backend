@@ -8,4 +8,6 @@ export type JsonValue =
 
 export type Env = {
   DB: D1Database;
+  CLERK_JWKS_URL?: string;
+  CLERK_ISSUER?: string;
 };

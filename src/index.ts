@@ -9,6 +9,8 @@ import {
   handleAddMySubtopic,
   handleAddMyTopic,
   handleCreateMyCourse,
+  handleDeleteMyCourse,
+  handleDeleteMyTopic,
   handleDeleteMySubtopic,
   handleGetAdminCourse,
   handleGetAdminCourses,
@@ -29,13 +31,6 @@ export default {
 
     if (url.pathname === "/api/health") {
       return jsonResponse(200, { ok: true });
-    }
-
-    if (url.pathname === "/api/login" && request.method === "GET") {
-      return new Response(null, {
-        status: 302,
-        headers: { Location: "https://ds-frontend-e9s.pages.dev/explore" },
-      });
     }
 
     if (url.pathname === "/api/me" && request.method === "GET") {
@@ -79,6 +74,9 @@ export default {
       if (!Number.isNaN(courseId) && request.method === "PATCH") {
         return handleUpdateMyCourse(request, env, courseId);
       }
+      if (!Number.isNaN(courseId) && request.method === "DELETE") {
+        return handleDeleteMyCourse(request, env, courseId);
+      }
     }
 
     if (
@@ -103,6 +101,9 @@ export default {
       const topicId = Number(parts[3]);
       if (!Number.isNaN(topicId) && request.method === "PATCH") {
         return handleUpdateMyTopic(request, env, topicId);
+      }
+      if (!Number.isNaN(topicId) && request.method === "DELETE") {
+        return handleDeleteMyTopic(request, env, topicId);
       }
     }
 
